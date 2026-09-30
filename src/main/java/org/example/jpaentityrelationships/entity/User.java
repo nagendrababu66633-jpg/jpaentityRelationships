@@ -3,8 +3,6 @@ package org.example.jpaentityrelationships.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -14,135 +12,62 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "first_name", nullable = false, length = 100)
+    @Column(name = "first_name", length = 100)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false, length = 100)
+    @Column(name = "last_name", length = 100)
     private String lastName;
 
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(name = "mobile_number", nullable = false, unique = true, length = 20)
+    @Column(name = "mobile_number", unique = true, length = 20)
     private String mobileNumber;
 
-    @Column(nullable = false, length = 20)
-    private String status;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
 
     @Column(nullable = false, length = 50)
-    private String role;
+    private String role = "USER";
 
-    @Column(name = "created_at", nullable = false)
+    @Column(nullable = false, length = 50)
+    private String status = "ACTIVE";
+
+    @Column(nullable = false)
+    private Boolean enabled = true;
+
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-
-    // User -> Profile
-    @OneToOne(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private Profile profile;
-
-
-    // User -> Addresses
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<Address> addresses = new ArrayList<>();
-
-
-    // User -> Orders
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY
-    )
-    private List<Order> orders = new ArrayList<>();
-
-
     public User() {
     }
-
 
     @PrePersist
     protected void onCreate() {
 
-        LocalDateTime now = LocalDateTime.now();
+        if (role == null) {
+            role = "USER";
+        }
 
-        createdAt = now;
-        updatedAt = now;
-    }
+        if (status == null) {
+            status = "ACTIVE";
+        }
 
+        if (enabled == null) {
+            enabled = true;
+        }
 
-    @PreUpdate
-    protected void onUpdate() {
-
+        createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
-
-    // Profile helper
-
-    public void setProfile(Profile profile) {
-
-        if (profile == null) {
-
-            if (this.profile != null) {
-                this.profile.setUser(null);
-            }
-
-        } else {
-
-            profile.setUser(this);
-        }
-
-        this.profile = profile;
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
-
-
-    // Address helper
-
-    public void addAddress(Address address) {
-
-        addresses.add(address);
-
-        address.setUser(this);
-    }
-
-
-    public void removeAddress(Address address) {
-
-        addresses.remove(address);
-
-        address.setUser(null);
-    }
-
-
-    // Order helper
-
-    public void addOrder(Order order) {
-
-        orders.add(order);
-
-        order.setUser(this);
-    }
-
-
-    public void removeOrder(Order order) {
-
-        orders.remove(order);
-
-        order.setUser(null);
-    }
-
-
-    // Getters and setters
 
     public Long getId() {
         return id;
@@ -184,12 +109,12 @@ public class User {
         this.mobileNumber = mobileNumber;
     }
 
-    public String getStatus() {
-        return status;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public String getRole() {
@@ -198,6 +123,26 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public Boolean isEnabled() {
+        return enabled != null && enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -214,17 +159,5 @@ public class User {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    public Profile getProfile() {
-        return profile;
-    }
-
-    public List<Address> getAddresses() {
-        return addresses;
-    }
-
-    public List<Order> getOrders() {
-        return orders;
     }
 }

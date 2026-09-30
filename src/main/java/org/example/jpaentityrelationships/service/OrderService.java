@@ -1,9 +1,10 @@
- package org.example.jpaentityrelationships.service;
+package org.example.jpaentityrelationships.service;
 
 import org.example.jpaentityrelationships.dto.OrderItemRequest;
 import org.example.jpaentityrelationships.dto.OrderItemResponse;
 import org.example.jpaentityrelationships.dto.OrderRequest;
 import org.example.jpaentityrelationships.dto.OrderResponse;
+import org.example.jpaentityrelationships.dto.OrderStatisticsResponse;
 import org.example.jpaentityrelationships.entity.Order;
 import org.example.jpaentityrelationships.entity.OrderItem;
 import org.example.jpaentityrelationships.entity.Product;
@@ -13,6 +14,10 @@ import org.example.jpaentityrelationships.exceptions.ResourceNotFoundException;
 import org.example.jpaentityrelationships.repository.OrderRepository;
 import org.example.jpaentityrelationships.repository.ProductRepository;
 import org.example.jpaentityrelationships.repository.UserRepository;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +32,26 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
+    // Added for today's Async task
+    private final NotificationService notificationService;
+
     public OrderService(
             OrderRepository orderRepository,
             UserRepository userRepository,
-            ProductRepository productRepository) {
+            ProductRepository productRepository,
+            NotificationService notificationService) {
 
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+
+        // Added for today's Async task
+        this.notificationService = notificationService;
     }
 
-
+    // =========================
     // CREATE ORDER
+    // =========================
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
 
@@ -46,142 +59,256 @@ public class OrderService {
                 request.getItems().isEmpty()) {
 
             throw new BadRequestException(
-                    "Order must contain at least one item");
+                    "Order must contain at least one item"
+            );
         }
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found: " +
-                                        request.getUserId()));
+        User user = getLoggedInUser();
 
         Order order = new Order();
-
         order.setUser(user);
         order.setStatus("NEW");
 
         BigDecimal total = BigDecimal.ZERO;
 
+        for (OrderItemRequest itemRequest : request.getItems()) {
 
-        for (OrderItemRequest itemRequest :
-                request.getItems()) {
-
-            // Validate quantity
             if (itemRequest.getQuantity() == null ||
                     itemRequest.getQuantity() <= 0) {
 
                 throw new BadRequestException(
-                        "Quantity must be greater than zero");
+                        "Quantity must be greater than zero"
+                );
             }
 
-
-            // Find product
             Product product =
-                    productRepository.findById(
-                                    itemRequest.getProductId())
+                    productRepository
+                            .findById(itemRequest.getProductId())
                             .orElseThrow(() ->
                                     new ResourceNotFoundException(
-                                            "Product not found: " +
-                                                    itemRequest.getProductId()));
+                                            "Product not found: "
+                                                    + itemRequest.getProductId()
+                                    )
+                            );
 
-
-            // Check stock
             if (product.getStock() <
                     itemRequest.getQuantity()) {
 
                 throw new BadRequestException(
-                        "Insufficient stock for product: " +
-                                product.getName());
+                        "Insufficient stock for product: "
+                                + product.getName()
+                );
             }
 
-
-            // Create OrderItem
             OrderItem orderItem = new OrderItem();
 
             orderItem.setProduct(product);
+            orderItem.setQuantity(itemRequest.getQuantity());
+            orderItem.setPrice(product.getPrice());
 
-            orderItem.setQuantity(
-                    itemRequest.getQuantity());
-
-            orderItem.setPrice(
-                    product.getPrice());
-
-
-            // Add item to order
             order.addOrderItem(orderItem);
 
-
-            // Calculate item total
             BigDecimal itemTotal =
                     product.getPrice()
                             .multiply(
                                     BigDecimal.valueOf(
-                                            itemRequest.getQuantity()));
-
+                                            itemRequest.getQuantity()
+                                    )
+                            );
 
             total = total.add(itemTotal);
 
-
-            // Reduce stock
             product.setStock(
-                    product.getStock() -
-                            itemRequest.getQuantity());
+                    product.getStock()
+                            - itemRequest.getQuantity()
+            );
         }
 
-
-        // Set total amount
         order.setTotalAmount(total);
 
-
-        // Save order
         Order savedOrder =
                 orderRepository.save(order);
 
+        // =====================================================
+        // ASYNC ORDER NOTIFICATION
+        // =====================================================
+
+        notificationService.sendOrderNotification(
+                savedOrder.getId(),
+                user.getEmail()
+        );
 
         return toResponse(savedOrder);
     }
 
+    // =========================
+    // GET MY ORDERS
+    // =========================
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getMyOrders() {
 
-    // GET ORDER BY ID
-    public OrderResponse getOrder(Long id) {
-
-        Order order =
-                orderRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Order not found: " + id));
-
-        return toResponse(order);
-    }
-
-
-    // GET ORDERS BY USER
-    public List<OrderResponse> getOrdersByUser(
-            Long userId) {
-
-        if (!userRepository.existsById(userId)) {
-
-            throw new ResourceNotFoundException(
-                    "User not found: " + userId);
-        }
+        User user = getLoggedInUser();
 
         return orderRepository
-                .findByUserId(userId)
+                .findOrdersWithItemsByUserId(user.getId())
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    // =========================
+    // GET ORDER BY ID
+    // =========================
+    @Transactional(readOnly = true)
+    public OrderResponse getOrder(Long id) {
 
-    // CONVERT ENTITY TO RESPONSE
+        Order order =
+                orderRepository
+                        .findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Order not found: " + id
+                                )
+                        );
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        boolean isAdmin =
+                authentication
+                        .getAuthorities()
+                        .stream()
+                        .anyMatch(authority ->
+                                authority
+                                        .getAuthority()
+                                        .equals("ROLE_ADMIN")
+                        );
+
+        if (isAdmin) {
+            return toResponse(order);
+        }
+
+        String email = authentication.getName();
+
+        if (!order.getUser()
+                .getEmail()
+                .equals(email)) {
+
+            throw new AccessDeniedException(
+                    "You cannot access another user's order"
+            );
+        }
+
+        return toResponse(order);
+    }
+
+    // =========================
+    // GET ORDERS BY USER
+    // =========================
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getOrdersByUser(Long userId) {
+
+        if (!userRepository.existsById(userId)) {
+
+            throw new ResourceNotFoundException(
+                    "User not found: " + userId
+            );
+        }
+
+        return orderRepository
+                .findOrdersWithItemsByUserId(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    // =========================
+    // CANCEL ORDER
+    // =========================
+    @Transactional
+    public OrderResponse cancelOrder(Long id) {
+
+        Order order =
+                orderRepository
+                        .findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Order not found: " + id
+                                )
+                        );
+
+        String email =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        .getName();
+
+        if (!order.getUser()
+                .getEmail()
+                .equals(email)) {
+
+            throw new AccessDeniedException(
+                    "You cannot cancel another user's order"
+            );
+        }
+
+        if (!"NEW".equals(order.getStatus()) &&
+                !"PENDING".equals(order.getStatus())) {
+
+            throw new BadRequestException(
+                    "Order cannot be cancelled in status: "
+                            + order.getStatus()
+            );
+        }
+
+        order.setStatus("CANCELLED");
+
+        Order savedOrder =
+                orderRepository.save(order);
+
+        return toResponse(savedOrder);
+    }
+
+    // =========================
+    // ORDER STATISTICS
+    // =========================
+    @Transactional(readOnly = true)
+    public OrderStatisticsResponse getOrderStatistics() {
+
+        return orderRepository.getOrderStatistics();
+    }
+
+    // =========================
+    // GET LOGGED-IN USER
+    // =========================
+    private User getLoggedInUser() {
+
+        String email =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        .getName();
+
+        return userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Logged-in user not found"
+                        )
+                );
+    }
+
+    // =========================
+    // CONVERT ORDER TO RESPONSE
+    // =========================
     private OrderResponse toResponse(Order order) {
 
         List<OrderItemResponse> items =
                 new ArrayList<>();
 
-
-        for (OrderItem item :
-                order.getOrderItems()) {
+        for (OrderItem item : order.getOrderItems()) {
 
             OrderItemResponse itemResponse =
                     new OrderItemResponse(
@@ -194,7 +321,6 @@ public class OrderService {
 
             items.add(itemResponse);
         }
-
 
         return new OrderResponse(
                 order.getId(),

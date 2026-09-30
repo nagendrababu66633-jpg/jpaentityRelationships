@@ -1,6 +1,7 @@
-package org.example.jpaentityrelationships.entity;
 
+        package org.example.jpaentityrelationships.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -25,17 +26,36 @@ public class Category {
     private String name;
 
     // One category has Many products
-    @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "category",
+            fetch = FetchType.LAZY
+    )
+    @JsonIgnore
     private List<Product> products = new ArrayList<>();
 
     public Category() {}
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public List<Product> getProducts() { return products; }
-    public void setProducts(List<Product> products) { this.products = products; }
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public List<Product> getProducts() {
+        return products;
+    }
+
+    public void setProducts(List<Product> products) {
+        this.products = products;
+    }
 }

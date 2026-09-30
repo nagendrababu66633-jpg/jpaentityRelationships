@@ -1,33 +1,15 @@
 package org.example.jpaentityrelationships.dto;
 
-import org.example.jpaentityrelationships.entity.Role;
-public class UserResponse {
+public class RegisterResponse {
 
     private Long id;
     private String firstName;
     private String lastName;
     private String email;
     private String mobileNumber;
-    private String status;
-    private Role role;
+    private String role;
 
-    public UserResponse() {
-    }
-
-    public UserResponse(Long id,
-                        String firstName,
-                        String lastName,
-                        String email,
-                        String mobileNumber,
-                        String status,
-                        Role role) {
-        this.id = id;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.email = email;
-        this.mobileNumber = mobileNumber;
-        this.status = status;
-        this.role = role;
+    public RegisterResponse() {
     }
 
     public Long getId() {
@@ -70,19 +52,11 @@ public class UserResponse {
         this.mobileNumber = mobileNumber;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public Role getRole() {
+    public String getRole() {
         return role;
     }
 
-    public void setRole(Role role) {
+    public void setRole(String role) {
         this.role = role;
     }
 }

@@ -5,6 +5,8 @@ import org.example.jpaentityrelationships.dto.CategoryResponse;
 import org.example.jpaentityrelationships.entity.Category;
 import org.example.jpaentityrelationships.exceptions.DuplicateResourceException;
 import org.example.jpaentityrelationships.repository.CategoryRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +20,11 @@ public class CategoryService {
         this.categoryRepository = categoryRepository;
     }
 
+    // =========================================================
+    // CREATE CATEGORY
+    // =========================================================
+
+    @CacheEvict(value = "categories", allEntries = true)
     public CategoryResponse createCategory(
             CategoryRequest request
     ) {
@@ -40,6 +47,11 @@ public class CategoryService {
         return toResponse(saved);
     }
 
+    // =========================================================
+    // GET ALL CATEGORIES
+    // =========================================================
+
+    @Cacheable(value = "categories", key = "'all'")
     public List<CategoryResponse> getAllCategories() {
 
         return categoryRepository.findAll()
@@ -47,6 +59,10 @@ public class CategoryService {
                 .map(this::toResponse)
                 .toList();
     }
+
+    // =========================================================
+    // CONVERT ENTITY TO RESPONSE
+    // =========================================================
 
     private CategoryResponse toResponse(
             Category category

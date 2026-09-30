@@ -3,96 +3,77 @@ package org.example.jpaentityrelationships.specification;
 import org.example.jpaentityrelationships.entity.Product;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.math.BigDecimal;
-
 public class ProductSpecification {
 
-    public static Specification<Product> nameContains(
-            String name
-    ) {
+    private ProductSpecification() {
+    }
 
-        return (root, query, cb) -> {
+    public static Specification<Product> hasName(String name) {
+        return (root, query, criteriaBuilder) -> {
 
-            if (name == null || name.isBlank()) {
+            if (name == null || name.trim().isEmpty()) {
                 return null;
             }
 
-            return cb.like(
-                    cb.lower(root.get("name")),
-                    "%" + name.toLowerCase() + "%"
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(root.get("name")),
+                    "%" + name.toLowerCase().trim() + "%"
             );
         };
     }
 
+    public static Specification<Product> hasDescription(String description) {
+        return (root, query, criteriaBuilder) -> {
 
-    public static Specification<Product> minPrice(
-            BigDecimal minPrice
-    ) {
+            if (description == null || description.trim().isEmpty()) {
+                return null;
+            }
 
-        return (root, query, cb) -> {
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(root.get("description")),
+                    "%" + description.toLowerCase().trim() + "%"
+            );
+        };
+    }
+
+    public static Specification<Product> priceGreaterThanOrEqualTo(
+            Double minPrice) {
+
+        return (root, query, criteriaBuilder) -> {
 
             if (minPrice == null) {
                 return null;
             }
 
-            return cb.greaterThanOrEqualTo(
+            return criteriaBuilder.greaterThanOrEqualTo(
                     root.get("price"),
                     minPrice
             );
         };
     }
 
+    public static Specification<Product> priceLessThanOrEqualTo(
+            Double maxPrice) {
 
-    public static Specification<Product> maxPrice(
-            BigDecimal maxPrice
-    ) {
-
-        return (root, query, cb) -> {
+        return (root, query, criteriaBuilder) -> {
 
             if (maxPrice == null) {
                 return null;
             }
 
-            return cb.lessThanOrEqualTo(
+            return criteriaBuilder.lessThanOrEqualTo(
                     root.get("price"),
                     maxPrice
             );
         };
     }
 
+    public static Specification<Product> hasStock() {
 
-    public static Specification<Product> categoryId(
-            Long categoryId
-    ) {
-
-        return (root, query, cb) -> {
-
-            if (categoryId == null) {
-                return null;
-            }
-
-            return cb.equal(
-                    root.get("category").get("id"),
-                    categoryId
-            );
-        };
-    }
-
-
-    public static Specification<Product> active(
-            Boolean active
-    ) {
-
-        return (root, query, cb) -> {
-
-            if (active == null) {
-                return null;
-            }
-
-            return cb.equal(
-                    root.get("active"),
-                    active
-            );
-        };
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.greaterThan(
+                        root.get("stock"),
+                        0
+                );
     }
 }

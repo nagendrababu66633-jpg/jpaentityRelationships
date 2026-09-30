@@ -1,7 +1,8 @@
- package org.example.jpaentityrelationships.controller;
+package org.example.jpaentityrelationships.controller;
 
 import org.example.jpaentityrelationships.dto.OrderRequest;
 import org.example.jpaentityrelationships.dto.OrderResponse;
+import org.example.jpaentityrelationships.dto.OrderStatisticsResponse;
 import org.example.jpaentityrelationships.service.OrderService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,13 +25,42 @@ public class OrderController {
     public ResponseEntity<OrderResponse> createOrder(
             @RequestBody OrderRequest request) {
 
-        OrderResponse response =
-                orderService.createOrder(request);
+        OrderResponse response = orderService.createOrder(request);
 
-        return new ResponseEntity<>(
-                response,
-                HttpStatus.CREATED
-        );
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    // GET MY ORDERS
+    @GetMapping("/my-orders")
+    public ResponseEntity<List<OrderResponse>> getMyOrders() {
+
+        List<OrderResponse> response = orderService.getMyOrders();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // GET ORDERS BY USER
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<OrderResponse>> getOrdersByUser(
+            @PathVariable Long userId) {
+
+        List<OrderResponse> response =
+                orderService.getOrdersByUser(userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ORDER STATISTICS
+    // IMPORTANT: This must come before /{id}
+    @GetMapping("/statistics")
+    public ResponseEntity<OrderStatisticsResponse> getOrderStatistics() {
+
+        OrderStatisticsResponse response =
+                orderService.getOrderStatistics();
+
+        return ResponseEntity.ok(response);
     }
 
     // GET ORDER BY ID
@@ -44,15 +74,14 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    // GET ALL ORDERS FOR USER
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<OrderResponse>> getOrdersByUser(
-            @PathVariable Long userId) {
+    // CANCEL ORDER
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponse> cancelOrder(
+            @PathVariable Long id) {
 
-        List<OrderResponse> response =
-                orderService.getOrdersByUser(userId);
+        OrderResponse response =
+                orderService.cancelOrder(id);
 
         return ResponseEntity.ok(response);
     }
 }
-
